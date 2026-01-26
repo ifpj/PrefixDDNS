@@ -160,7 +160,29 @@ Dynu 支持标准的 IP Update Protocol。
 
 ---
 
-## 4. 通用 Webhook
+## 4. Afraid.org (FreeDNS)
+
+Afraid.org 使用基于 Token 的 Direct URL 更新。
+
+- **Method**: `GET`
+- **URL**:
+  ```text
+  https://freedns.afraid.org/dynamic/update.php?YOUR_TOKEN&address={{combined_ip}}
+  ```
+- **Body**: `null` (留空)
+
+### 如何获取 `YOUR_TOKEN`？
+
+1. 登录 [freedns.afraid.org](https://freedns.afraid.org/)。
+2. 进入 **Dynamic DNS** 页面。
+3. 在列表底部，找到 **"Direct URL"** 链接。
+4. 右键复制该链接。
+   - 链接格式通常为：`https://freedns.afraid.org/dynamic/update.php?这里是Token`
+   - **注意**：如果 Direct URL 已经是 `https://sync.afraid.org/u/TOKEN/` 格式，请尝试使用 `https://freedns.afraid.org/dynamic/update.php?TOKEN&address={{combined_ip}}` 格式，其中 `TOKEN` 是 URL 中 `u/` 后面的一长串字符。
+
+---
+
+## 5. 通用 Webhook
 
 用于对接自建服务、Server酱、Telegram Bot 等。
 

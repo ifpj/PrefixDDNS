@@ -65,6 +65,14 @@ const App = {
             webhook_headers: {},
             webhook_body: null,
             suffix: ''
+        },
+        'afraid': {
+            name: 'Afraid.org (FreeDNS)',
+            webhook_method: 'GET',
+            webhook_url: 'https://freedns.afraid.org/dynamic/update.php?YOUR_TOKEN&address={{combined_ip}}',
+            webhook_headers: {},
+            webhook_body: null,
+            suffix: ''
         }
     },
 
