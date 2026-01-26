@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrefixDDNS Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css?v=11">
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
+    <script type="module" src="/js/app.js?v=11"></script>
+</head>
+<body>
+
+    <div class="app-layout">
+        <!-- Top Navigation -->
+        <header class="top-nav">
+            <div class="container nav-container">
+                <div class="nav-brand">
+                    <img src="/logo.svg" alt="Logo" class="logo-icon">
+                    <span>PrefixDDNS</span>
+                </div>
+
+                <div style="flex: 1;"></div>
+
+                <!-- Global Save Button -->
+                <button class="btn btn-primary btn-sm" id="global-save-btn">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    Save Config
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container content-scroll">
+
+                <!-- Settings Section (Compact) -->
+                <div class="card mb-6">
+                    <div class="card-body py-3 flex items-center gap-6 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="form-label mb-0 whitespace-nowrap text-muted">Log Limit:</label>
+                            <input type="number" id="setting-log-limit" class="form-input form-input-sm" style="width: 80px;" value="100">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="setting-run-on-startup" class="form-checkbox">
+                                <span class="text-sm font-medium">Run on Startup</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tasks Section -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-bold m-0 text-main">Tasks</h3>
+                        <div class="flex gap-2">
+                            <select id="template-selector" class="form-select form-select-sm text-sm py-1" style="width: auto;">
+                                <!-- Options populated by JS -->
+                            </select>
+                            <button class="btn btn-sm btn-primary" id="add-task-btn">
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Task
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="tasks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Task Items (Summary Cards) -->
+                    </div>
+
+                    <div id="no-tasks-msg" class="text-center text-muted p-8 bg-card rounded border border-dashed" style="display: none;">
+                        <div class="mb-2">No tasks configured</div>
+                        <button class="btn btn-sm btn-outline" onclick="document.getElementById('add-task-btn').click()">Create your first task</button>
+                    </div>
+                </div>
+
+                <!-- Live Logs Section -->
+                <div class="card flex-1 flex flex-col shadow-md" style="min-height: 400px;">
+                    <div class="card-header py-2 min-h-0 flex justify-between items-center bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <h3 class="card-title text-sm font-semibold uppercase tracking-wider text-muted">Live Logs</h3>
+                            <!-- Connection Status -->
+                            <div class="status-indicator flex items-center gap-2" title="Connection Status">
+                                <div class="status-dot" id="connection-dot"></div>
+                                <span class="text-xs text-muted" id="connection-text">Connecting...</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <span class="text-muted text-xs" id="log-count">0 logs</span>
+                            <button class="btn btn-sm btn-ghost py-0 text-xs" id="clear-logs-btn">Clear</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 flex-1 relative bg-black">
+                        <div class="logs-container absolute inset-0" id="logs-output">
+                            <!-- Logs inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="task-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Task Details</h3>
+                <!-- Close X removed -->
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-task-id">
+                
+                <div class="flex flex-col gap-4">
+                    <!-- Top Row: Name & Suffix -->
+                    <div class="flex gap-4 items-end">
+                        <div class="form-group mb-0 flex-1">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">Task Name</label>
+                            <input type="text" id="modal-task-name" class="form-input font-medium" placeholder="My DNS Task">
+                        </div>
+                        <div class="form-group mb-0 w-40">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">IPv6 Suffix</label>
+                            <input type="text" id="modal-task-suffix" class="form-input font-mono" placeholder="::1">
+                        </div>
+                    </div>
+
+                    <!-- Second Row: Method & URL -->
+                    <div class="flex gap-4 items-end">
+                        <div class="form-group mb-0 w-24 shrink-0">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">Method</label>
+                            <select id="modal-task-method" class="form-select font-mono text-xs">
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0 flex-1">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">Webhook URL</label>
+                            <input type="text" id="modal-task-url" class="form-input font-mono text-xs" placeholder="https://api.example.com/...">
+                        </div>
+                    </div>
+
+                    <!-- Headers & Body -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                        <div class="form-group mb-0 flex flex-col">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">Headers (Key:Value)</label>
+                            <textarea id="modal-task-headers" class="form-textarea font-mono text-xs flex-1" rows="5" placeholder="Authorization: Bearer token"></textarea>
+                        </div>
+
+                        <div class="form-group mb-0 flex flex-col">
+                            <label class="form-label text-xs uppercase tracking-wide text-muted">Body (JSON)</label>
+                            <textarea id="modal-task-body" class="form-textarea font-mono text-xs flex-1" rows="5" placeholder="{ 'content': '{{combined_ip}}' }"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API Preview Removed -->
+            </div>
+            <div class="modal-footer flex justify-between items-center bg-gray-50">
+                <div class="flex gap-2">
+                    <button class="btn btn-sm btn-outline" id="modal-test-btn">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-1"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Test Run
+                    </button>
+                    <button class="btn btn-sm btn-ghost text-danger hover:bg-red-50" id="modal-delete-btn">Delete</button>
+                </div>
+                <div class="flex gap-2">
+                    <!-- Unified Done Button -->
+                    <button class="btn btn-primary px-6" id="modal-save-btn">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- Task Item Template -->
+    <template id="task-item-template">
+        <div class="task-card group relative bg-card border rounded-lg transition-all duration-200 border-l-4 p-3 hover:shadow-sm cursor-pointer">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3 overflow-hidden flex-1 mr-2 pointer-events-none">
+                    <!-- Status Icon -->
+                    <div class="task-icon-container w-8 h-8 rounded-full flex items-center justify-center bg-gray-50 text-gray-400 shrink-0">
+                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    
+                    <h4 class="task-name font-bold text-main truncate text-lg leading-none m-0">Task Name</h4>
+                </div>
+
+                <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation()">
+                    <!-- API Trigger Checkbox -->
+                    <div class="flex items-center gap-1.5" title="Allow API Trigger">
+                        <input type="checkbox" class="api-checkbox task-api-toggle" style="width: 1rem; height: 1rem;">
+                    </div>
+
+                    <!-- Enabled Toggle -->
+                    <div class="flex items-center gap-1.5" title="Enable Task">
+                        <label class="toggle-switch-lg" style="transform: scale(0.8);">
+                            <input type="checkbox" class="task-enable-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+</body>
+</html>
