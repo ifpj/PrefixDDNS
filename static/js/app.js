@@ -13,7 +13,8 @@ const App = {
         sse: null,
         reconnectTimer: null,
         currentTaskIndex: -1, // -1 for new task
-        logCount: 0
+        logCount: 0,
+        isDirty: false
     },
 
     // Defined Templates (Source of Truth)
@@ -106,6 +107,41 @@ const App = {
         connectionText: document.getElementById('connection-text')
     },
 
+    markDirty() {
+        if (this.state.isDirty) return;
+        this.state.isDirty = true;
+        const btn = document.getElementById('global-save-btn');
+        btn.classList.add('btn-warning');
+        btn.classList.remove('btn-primary');
+        // Add indicator text without removing icon
+        if (!btn.querySelector('.unsaved-indicator')) {
+            const span = document.createElement('span');
+            span.className = 'unsaved-indicator';
+            span.textContent = '*';
+            span.style.marginLeft = '4px';
+            span.style.fontWeight = 'bold';
+            btn.appendChild(span);
+        }
+        
+        // Add beforeunload listener
+        window.onbeforeunload = (e) => {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        };
+    },
+
+    markClean() {
+        this.state.isDirty = false;
+        const btn = document.getElementById('global-save-btn');
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-primary');
+        const indicator = btn.querySelector('.unsaved-indicator');
+        if (indicator) indicator.remove();
+        
+        // Remove beforeunload listener
+        window.onbeforeunload = null;
+    },
+
     init() {
         this.initTemplates();
         this.connectSSE();
@@ -166,10 +202,14 @@ const App = {
             this.state.config = { ...this.state.config, ...data };
             
             // Update Settings UI
-            this.elements.settingLogLimit.value = this.state.config.log_limit || 100;
-            this.elements.settingRunOnStartup.checked = !!this.state.config.run_on_startup;
+        this.elements.settingLogLimit.value = this.state.config.log_limit || 100;
+        this.elements.settingRunOnStartup.checked = !!this.state.config.run_on_startup;
 
-            this.renderTasks();
+        // Settings change listeners
+        this.elements.settingLogLimit.addEventListener('change', () => this.markDirty());
+        this.elements.settingRunOnStartup.addEventListener('change', () => this.markDirty());
+
+        this.renderTasks();
             this.showToast('Configuration loaded', 'success');
         } catch (error) {
             console.error('Error fetching config:', error);
@@ -289,10 +329,12 @@ const App = {
     toggleTaskEnabled(index, isEnabled) {
         this.state.config.tasks[index].enabled = isEnabled;
         this.renderTasks(); 
+        this.markDirty();
     },
 
     toggleTaskApi(index, isAllowed) {
         this.state.config.tasks[index].allow_api_trigger = isAllowed;
+        this.markDirty();
     },
 
     openTaskModal(index) {
@@ -352,6 +394,7 @@ const App = {
 
         this.renderTasks();
         this.closeModal();
+        this.markDirty();
         this.showToast(this.state.currentTaskIndex === -1 ? 'Task added (unsaved)' : 'Task updated (unsaved)');
     },
 
@@ -367,6 +410,7 @@ const App = {
         this.state.config.tasks.push(newTask);
         this.renderTasks();
         this.closeModal();
+        this.markDirty();
         this.showToast('Task copied (unsaved)');
     },
 
@@ -377,6 +421,7 @@ const App = {
             this.state.config.tasks.splice(this.state.currentTaskIndex, 1);
             this.renderTasks();
             this.closeModal();
+            this.markDirty();
             this.showToast('Task deleted (unsaved)');
         }
     },
@@ -402,6 +447,7 @@ const App = {
             });
 
             if (response.ok) {
+                this.markClean();
                 this.showToast('Configuration saved successfully!', 'success');
             } else {
                 const text = await response.text();
