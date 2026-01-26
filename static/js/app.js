@@ -74,6 +74,30 @@ const App = {
             webhook_headers: {},
             webhook_body: null,
             suffix: ''
+        },
+        'duckdns': {
+            name: 'DuckDNS',
+            webhook_method: 'GET',
+            webhook_url: 'https://www.duckdns.org/update?domains=YOUR_DOMAIN&token=YOUR_TOKEN&ipv6={{combined_ip}}',
+            webhook_headers: {},
+            webhook_body: null,
+            suffix: ''
+        },
+        'desec': {
+            name: 'deSEC.io',
+            webhook_method: 'GET',
+            webhook_url: 'https://update.dedyn.io/?hostname=YOUR_FULL_DOMAIN&myipv6={{combined_ip}}',
+            webhook_headers: { 'Authorization': 'Token YOUR_TOKEN' },
+            webhook_body: null,
+            suffix: ''
+        },
+        'ydns': {
+            name: 'YDNS',
+            webhook_method: 'GET',
+            webhook_url: 'https://ydns.io/api/v1/update/?host=YOUR_HOST&ip={{combined_ip}}',
+            webhook_headers: { 'Authorization': 'Basic YOUR_BASE64_AUTH' },
+            webhook_body: null,
+            suffix: ''
         }
     },
 

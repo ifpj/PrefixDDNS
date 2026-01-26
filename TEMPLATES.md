@@ -10,7 +10,11 @@ PrefixDDNS 支持通过高度可定制的模板来适配各种 DDNS 提供商和
 2.  [Cloudflare DNS](#1-cloudflare-dns)
 3.  [Dynv6](#2-dynv6)
 4.  [Dynu](#3-dynu)
-5.  [通用 Webhook](#4-通用-webhook)
+5.  [Afraid.org (FreeDNS)](#4-afraidorg-freedns)
+6.  [DuckDNS](#5-duckdns)
+7.  [deSEC.io](#6-desecio)
+8.  [YDNS](#7-ydns)
+9.  [通用 Webhook](#8-通用-webhook)
 
 ---
 
@@ -182,7 +186,82 @@ Afraid.org 使用基于 Token 的 Direct URL 更新。
 
 ---
 
-## 5. 通用 Webhook
+## 5. DuckDNS
+
+DuckDNS 提供了简单的 API 来更新 IP 地址。
+
+- **Method**: `GET`
+- **URL**:
+  ```text
+  https://www.duckdns.org/update?domains=YOUR_DOMAIN&token=YOUR_TOKEN&ipv6={{combined_ip}}
+  ```
+- **Body**: `null` (留空)
+
+### 参数说明
+
+- **YOUR_DOMAIN**: 你的子域名（不包含 `.duckdns.org`，例如 `example`）。
+- **YOUR_TOKEN**: 登录 [duckdns.org](https://www.duckdns.org/) 后在页面顶部显示的 Token。
+
+---
+
+## 6. deSEC.io
+
+deSEC.io 支持通过标准 GET 请求更新 IPv6。
+
+- **Method**: `GET`
+- **URL**:
+  ```text
+  https://update.dedyn.io/?hostname=YOUR_FULL_DOMAIN&myipv6={{combined_ip}}
+  ```
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Token YOUR_TOKEN"
+  }
+  ```
+- **Body**: `null` (留空)
+
+### 参数说明
+
+- **YOUR_FULL_DOMAIN**: 你的完整域名（例如 `example.dedyn.io` 或自定义域名 `ipv6.example.com`）。
+  - **子域名**: 如果要更新子域名（如 `sub.example.dedyn.io`），直接在此处填写完整的子域名即可。deSEC 的 API 会自动处理。
+- **YOUR_TOKEN**: 你的 deSEC Token（不是登录密码）。
+  - Token 需要具有 DNS 管理权限。
+  - **如何获取**: 登录 [desec.io](https://desec.io/) -> Token Management -> Create New Token。创建时记得保存 Token Secret，因为它只显示一次。
+  - **注意**: deSEC 推荐使用 Header 进行认证，但也支持 URL 参数 `&username=YOUR_FULL_DOMAIN&password=YOUR_TOKEN`（不推荐，因为 Token 会暴露在 URL 日志中）。
+
+---
+
+## 7. YDNS
+
+YDNS 提供了简单的 API 来更新 IP 地址。
+
+- **Method**: `GET`
+- **URL**:
+  ```text
+  https://ydns.io/api/v1/update/?host=YOUR_HOST&ip={{combined_ip}}
+  ```
+- **Headers**:
+  ```json
+  {
+    "Authorization": "Basic YOUR_BASE64_AUTH"
+  }
+  ```
+- **Body**: `null` (留空)
+
+### 参数说明
+
+- **YOUR_HOST**: 你的完整域名（例如 `example.ydns.io`）。
+- **YOUR_BASE64_AUTH**: YDNS 要求使用 HTTP Basic Auth。你需要将 `username:password` 进行 Base64 编码。
+  - **Username/Password**: 在 [ydns.io](https://ydns.io/) 登录后，进入 API 页面获取 API Username 和 Password。
+  - **生成方法**:
+    - Linux/Mac: `echo -n 'api_username:api_password' | base64`
+    - 浏览器控制台: `btoa('api_username:api_password')`
+  - **填入格式**: 如果生成的字符串是 `dXNlcjpwYXNz`，则 Header 中填入 `Basic dXNlcjpwYXNz`。
+
+---
+
+## 8. 通用 Webhook
 
 用于对接自建服务、Server酱、Telegram Bot 等。
 
