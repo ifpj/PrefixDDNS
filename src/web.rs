@@ -43,7 +43,7 @@ pub async fn start_server(state: AppState, port: u16) {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
-    println!("{} {} Web server listening on http://0.0.0.0:{}", Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(), "[Init]".green(), port);
+    println!("{} {} Web server listening on http://0.0.0.0:{}", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[Init]".green(), port);
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -57,7 +57,7 @@ async fn access_log_middleware(req: Request, next: Next) -> Response {
     let duration = start.elapsed();
     let status = response.status();
     
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed();
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let method_str = method.to_string();
     let method_colored = match method.as_str() {
         "GET" => method_str.green(),

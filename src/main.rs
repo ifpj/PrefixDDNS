@@ -40,6 +40,12 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
+    // Force colored output unless NO_COLOR is set
+    // This ensures logs are colored in systemd/cat (non-TTY) environments
+    if std::env::var("NO_COLOR").is_err() {
+        colored::control::set_override(true);
+    }
+
     // Set working directory if specified
     if let Some(work_dir) = args.work_dir {
         std::env::set_current_dir(&work_dir)?;
@@ -64,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
         match get_interface_index(&iface_name) {
             Ok(idx) => Some(idx),
             Err(e) => {
-                let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed();
+                let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
                 eprintln!("{} {} Error resolving interface '{}': {}", timestamp, "[Error]".red(), iface_name, e);
                 return Err(e);
             }
@@ -78,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
     let monitor = NetlinkMonitor::new(netlink_tx, run_on_startup, interface_index);
     tokio::spawn(async move {
         if let Err(e) = monitor.run().await {
-            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed();
+            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
             eprintln!("{} {} Netlink monitor error: {}", timestamp, "[Error]".red(), e);
         }
     });
@@ -90,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
         web::start_server(server_state, port).await;
     });
 
-    println!("{} {} PrefixDDNS started.", Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed(), "[Init]".green());
+    println!("{} {} PrefixDDNS started.", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[Init]".green());
 
     // Initialize last_prefix based on current state and config
     let mut last_prefix: Option<u128> = None;
@@ -104,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
             Some(ip)
         }
         Err(e) => {
-            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string().dimmed();
+            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
             eprintln!("{} {} Failed to fetch initial IP: {}", timestamp, "[Error]".red(), e);
             None
         }
@@ -123,34 +129,74 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Shutdown signal
+    let mut shutdown = Box::pin(shutdown_signal());
+
     // Main loop: Process IPv6 changes
-    while let Ok(ip) = netlink_rx.recv().await {
-        let current_prefix = get_prefix_64(ip);
+    loop {
+        tokio::select! {
+            result = netlink_rx.recv() => {
+                match result {
+                    Ok(ip) => {
+                        let current_prefix = get_prefix_64(ip);
 
-        if Some(current_prefix) == last_prefix {
-            if std::env::var("DEBUG_DUPLICATE").is_ok() {
-                // 截断后缀零，仅保留前64位前缀
-                let prefix_trunc = current_prefix >> 64;
-                let msg = format!("Duplicate IP: {}, Prefix: {:x}", ip, prefix_trunc);
-                let log_limit = config_manager.get_log_limit().await;
-                log_to_web(&state.log_tx, &state.recent_logs, "Netlink", "debug", &msg, log_limit).await;
+                        if Some(current_prefix) == last_prefix {
+                            if std::env::var("DEBUG_DUPLICATE").is_ok() {
+                                // 截断后缀零，仅保留前64位前缀
+                                let prefix_trunc = current_prefix >> 64;
+                                let msg = format!("Duplicate IP: {}, Prefix: {:x}", ip, prefix_trunc);
+                                let log_limit = config_manager.get_log_limit().await;
+                                log_to_web(&state.log_tx, &state.recent_logs, "Netlink", "debug", &msg, log_limit).await;
+                            }
+                            continue;
+                        }
+                        last_prefix = Some(current_prefix);
+
+                        let tasks = config_manager.get_tasks().await;
+                        let log_limit = config_manager.get_log_limit().await;
+
+                        let msg = format!("New IPv6 prefix from: {}", ip);
+
+                        // Log detection
+                        log_to_web(&state.log_tx, &state.recent_logs, "Netlink", "info", &msg, log_limit).await;
+
+                        process_tasks(&state, &tasks, ip, log_limit, "Netlink").await;
+                    }
+                    Err(_) => break,
+                }
             }
-            continue;
+            _ = &mut shutdown => {
+                println!("{} {} Received termination signal, shutting down...", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[System]".yellow());
+                break;
+            }
         }
-        last_prefix = Some(current_prefix);
-
-        let tasks = config_manager.get_tasks().await;
-        let log_limit = config_manager.get_log_limit().await;
-
-        let msg = format!("New IPv6 prefix from: {}", ip);
-
-        // Log detection
-        log_to_web(&state.log_tx, &state.recent_logs, "Netlink", "info", &msg, log_limit).await;
-
-        process_tasks(&state, &tasks, ip, log_limit, "Netlink").await;
     }
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
 
 fn get_interface_index(name: &str) -> anyhow::Result<u32> {
