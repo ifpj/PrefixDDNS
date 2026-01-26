@@ -63,6 +63,7 @@ async fn access_log_middleware(req: Request, next: Next) -> Response {
         "GET" => method_str.green(),
         "POST" => method_str.yellow(),
         "PUT" => method_str.blue(),
+        "PATCH" => method_str.magenta(),
         "DELETE" => method_str.red(),
         _ => method_str.normal(),
     };
@@ -234,6 +235,7 @@ pub async fn send_webhook(task: &Task, original_ip: Ipv6Addr, combined_ip: Ipv6A
     let mut req_builder = match task.webhook_method.to_uppercase().as_str() {
         "POST" => client.post(&task.webhook_url),
         "PUT" => client.put(&task.webhook_url),
+        "PATCH" => client.patch(&task.webhook_url),
         _ => client.get(&task.webhook_url),
     };
 
