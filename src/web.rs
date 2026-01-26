@@ -222,21 +222,26 @@ pub async fn send_webhook(task: &Task, original_ip: Ipv6Addr, combined_ip: Ipv6A
     let prefix_len = 64; // Hardcoded for now
     let prefix = format!("{}/{}", original_ip, prefix_len); // Roughly
 
-    let mut body = task.webhook_body.clone().unwrap_or_default();
-    body = body.replace("{{combined_ip}}", &combined_ip.to_string());
-    body = body.replace("{{original_ip}}", &original_ip.to_string());
+    // Helper closure for replacement
+    let do_replace = |text: &str| -> String {
+        let mut s = text.to_string();
+        s = s.replace("{{combined_ip}}", &combined_ip.to_string());
+        s = s.replace("{{original_ip}}", &original_ip.to_string());
+        if let Some(input) = input_ip {
+            s = s.replace("{{input_ip}}", &input.to_string());
+        }
+        s = s.replace("{{prefix}}", &prefix);
+        s
+    };
 
-    if let Some(input) = input_ip {
-        body = body.replace("{{input_ip}}", &input.to_string());
-    }
-
-    body = body.replace("{{prefix}}", &prefix); // Need better prefix string if needed
+    let url = do_replace(&task.webhook_url);
+    let body = do_replace(&task.webhook_body.clone().unwrap_or_default());
 
     let mut req_builder = match task.webhook_method.to_uppercase().as_str() {
-        "POST" => client.post(&task.webhook_url),
-        "PUT" => client.put(&task.webhook_url),
-        "PATCH" => client.patch(&task.webhook_url),
-        _ => client.get(&task.webhook_url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
+        _ => client.get(&url),
     };
 
     for (k, v) in &task.webhook_headers {

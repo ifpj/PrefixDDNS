@@ -19,7 +19,7 @@ PrefixDDNS 的核心工作流程如下：
 
 3.  **触发 (Trigger)**:
     *   程序使用组合后的 IP 地址，按照任务配置的 Webhook URL、Method、Headers 和 Body 发送 HTTP 请求。
-    *   支持在 Body 中使用变量替换（见下文）。
+    *   支持在 URL 和 Body 中使用变量替换（见下文）。
 
 ## 前后端交互逻辑 (Frontend-Backend Interaction)
 
@@ -124,7 +124,7 @@ PrefixDDNS 内置了一个 Web 服务器（基于 Axum），用于提供仪表�
 
 ## 变量替换
 
-在 Webhook Body 中可以使用以下变量：
+在 Webhook URL 和 Body 中可以使用以下变量：
 
 *   `{{combined_ip}}`: 组合后的完整 IPv6 地址（前缀 + 后缀）。
 *   `{{prefix}}`: 检测到的前缀（格式如 `2001:db8::/64`）。
