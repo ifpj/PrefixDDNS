@@ -18,6 +18,14 @@ const App = {
 
     // Defined Templates (Source of Truth)
     templates: {
+        'webhook': {
+             name: 'Generic Webhook',
+             webhook_method: 'POST',
+             webhook_url: 'https://example.com/webhook',
+             webhook_headers: { 'Content-Type': 'application/json' },
+             webhook_body: JSON.stringify({ ip: '{{combined_ip}}' }, null, 2),
+             suffix: ''
+        },        
         'cloudflare': {
             name: 'Cloudflare DNS',
             webhook_method: 'PUT',
@@ -26,13 +34,37 @@ const App = {
             webhook_body: JSON.stringify({ type: 'AAAA', name: 'example.com', content: '{{combined_ip}}', ttl: 120, proxied: false }, null, 2),
             suffix: '::1'
         },
-        'webhook': {
-             name: 'Generic Webhook',
-             webhook_method: 'POST',
-             webhook_url: 'https://example.com/webhook',
-             webhook_headers: { 'Content-Type': 'application/json' },
-             webhook_body: JSON.stringify({ ip: '{{combined_ip}}' }, null, 2),
-             suffix: ''
+        'dynv6': {
+            name: 'Dynv6 (Zone)',
+            webhook_method: 'GET',
+            webhook_url: 'https://dynv6.com/api/update?hostname=YOUR_HOSTNAME&token=YOUR_TOKEN&ipv6={{combined_ip}}',
+            webhook_headers: {},
+            webhook_body: null,
+            suffix: ''
+        },
+        'dynv6_subdomain': {
+            name: 'Dynv6 (Subdomain)',
+            webhook_method: 'PATCH',
+            webhook_url: 'https://dynv6.com/api/v2/zones/YOUR_ZONE_ID/records/YOUR_RECORD_ID',
+            webhook_headers: { 'Authorization': 'Bearer YOUR_TOKEN', 'Content-Type': 'application/json' },
+            webhook_body: JSON.stringify({ data: '{{combined_ip}}' }, null, 2),
+            suffix: ''
+        },
+        'dynu': {
+            name: 'Dynu (Zone)',
+            webhook_method: 'GET',
+            webhook_url: 'https://api.dynu.com/nic/update?hostname=YOUR_HOSTNAME&myipv6={{combined_ip}}&username=YOUR_USERNAME&password=YOUR_PASSWORD',
+            webhook_headers: {},
+            webhook_body: null,
+            suffix: ''
+        },
+        'dynu_subdomain': {
+            name: 'Dynu (Subdomain/Alias)',
+            webhook_method: 'GET',
+            webhook_url: 'https://api.dynu.com/nic/update?hostname=YOUR_ROOT_DOMAIN&alias=YOUR_SUBDOMAIN&myipv6={{combined_ip}}&username=YOUR_USERNAME&password=YOUR_PASSWORD',
+            webhook_headers: {},
+            webhook_body: null,
+            suffix: ''
         }
     },
 
