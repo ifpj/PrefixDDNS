@@ -147,6 +147,7 @@ const App = {
         document.getElementById('modal-save-btn').addEventListener('click', () => this.updateTaskFromModal());
         document.getElementById('modal-delete-btn').addEventListener('click', () => this.deleteTask());
         document.getElementById('modal-test-btn').addEventListener('click', () => this.testRunTask());
+        document.getElementById('modal-copy-btn').addEventListener('click', () => this.copyTask());
 
         // Click outside modal to close (Cancel)
         window.addEventListener('click', (e) => {
@@ -300,6 +301,7 @@ const App = {
         
         this.elements.modalTitle.textContent = isNew ? 'Add New Task' : 'Edit Task Details';
         document.getElementById('modal-delete-btn').style.display = isNew ? 'none' : 'block';
+        document.getElementById('modal-copy-btn').style.display = isNew ? 'none' : 'block';
         document.getElementById('modal-save-btn').textContent = isNew ? 'Add Task' : 'Done';
 
         // Default Data
@@ -351,6 +353,21 @@ const App = {
         this.renderTasks();
         this.closeModal();
         this.showToast(this.state.currentTaskIndex === -1 ? 'Task added (unsaved)' : 'Task updated (unsaved)');
+    },
+
+    copyTask() {
+        if (this.state.currentTaskIndex === -1) return;
+
+        const task = this.state.config.tasks[this.state.currentTaskIndex];
+        const newTask = JSON.parse(JSON.stringify(task)); // Deep copy
+        
+        newTask.id = this.generateId();
+        newTask.name = `${newTask.name} (Copy)`;
+        
+        this.state.config.tasks.push(newTask);
+        this.renderTasks();
+        this.closeModal();
+        this.showToast('Task copied (unsaved)');
     },
 
     deleteTask() {
