@@ -83,9 +83,12 @@ async fn main() -> anyhow::Result<()> {
     let run_on_startup = config_manager.get_run_on_startup().await;
     let monitor = NetlinkMonitor::new(netlink_tx, run_on_startup, interface_index);
     tokio::spawn(async move {
-        if let Err(e) = monitor.run().await {
-            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            eprintln!("{} {} Netlink monitor error: {}", timestamp, "[Error]".red(), e);
+        loop {
+            if let Err(e) = monitor.run().await {
+                let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                eprintln!("{} {} Netlink monitor error: {}. Retrying in 5s...", timestamp, "[Error]".red(), e);
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
 
@@ -221,38 +224,45 @@ async fn process_tasks(
         if !task.enabled {
             continue;
         }
-        match web::combine_ip(ip, &task.suffix) {
-            Ok(combined) => {
-                let log_msg = format!(
-                    "Task [{}]: Running for {}",
-                    task.name, combined
-                );
-                log_to_web(&state.log_tx, &state.recent_logs, source, "info", &log_msg, log_limit).await;
 
-                match web::send_webhook(task, ip, combined, None).await {
-                    Ok(status) => {
-                        let success_msg = format!(
-                            "Task [{}]: Success (HTTP {})",
-                            task.name, status
-                        );
-                        log_to_web(&state.log_tx, &state.recent_logs, source, "success", &success_msg, log_limit).await;
-                    }
-                    Err(e) => {
-                        let err_msg = format!(
-                            "Task [{}]: Failed: {}",
-                            task.name, e
-                        );
-                        log_to_web(&state.log_tx, &state.recent_logs, source, "error", &err_msg, log_limit).await;
+        let state = state.clone();
+        let task = task.clone();
+        let source = source.to_string();
+
+        tokio::spawn(async move {
+            match web::combine_ip(ip, &task.suffix) {
+                Ok(combined) => {
+                    let log_msg = format!(
+                        "Task [{}]: Running for {}",
+                        task.name, combined
+                    );
+                    log_to_web(&state.log_tx, &state.recent_logs, &source, "info", &log_msg, log_limit).await;
+
+                    match web::send_webhook(&task, ip, combined, None).await {
+                        Ok(status) => {
+                            let success_msg = format!(
+                                "Task [{}]: Success (HTTP {})",
+                                task.name, status
+                            );
+                            log_to_web(&state.log_tx, &state.recent_logs, &source, "success", &success_msg, log_limit).await;
+                        }
+                        Err(e) => {
+                            let err_msg = format!(
+                                "Task [{}]: Failed: {}",
+                                task.name, e
+                            );
+                            log_to_web(&state.log_tx, &state.recent_logs, &source, "error", &err_msg, log_limit).await;
+                        }
                     }
                 }
+                Err(e) => {
+                    let err_msg = format!(
+                        "Task [{}]: IP combination failed: {}",
+                        task.name, e
+                    );
+                    log_to_web(&state.log_tx, &state.recent_logs, &source, "error", &err_msg, log_limit).await;
+                }
             }
-            Err(e) => {
-                let err_msg = format!(
-                    "Task [{}]: IP combination failed: {}",
-                    task.name, e
-                );
-                log_to_web(&state.log_tx, &state.recent_logs, source, "error", &err_msg, log_limit).await;
-            }
-        }
+        });
     }
 }
