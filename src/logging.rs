@@ -1,8 +1,8 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use chrono::Local;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogEntry {

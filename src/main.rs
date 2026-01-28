@@ -1,17 +1,17 @@
 mod config;
+mod logging;
 mod netlink;
 mod web;
-mod logging;
 
-use config::ConfigManager;
-use netlink::NetlinkMonitor;
-use web::AppState;
-use logging::log_to_web;
-use tokio::sync::{broadcast, RwLock};
-use std::sync::Arc;
-use std::collections::VecDeque;
-use colored::Colorize;
 use chrono::Local;
+use colored::Colorize;
+use config::ConfigManager;
+use logging::log_to_web;
+use netlink::NetlinkMonitor;
+use std::collections::VecDeque;
+use std::sync::Arc;
+use tokio::sync::{broadcast, RwLock};
+use web::AppState;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -71,7 +71,13 @@ async fn main() -> anyhow::Result<()> {
             Ok(idx) => Some(idx),
             Err(e) => {
                 let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                eprintln!("{} {} Error resolving interface '{}': {}", timestamp, "[Error]".red(), iface_name, e);
+                eprintln!(
+                    "{} {} Error resolving interface '{}': {}",
+                    timestamp,
+                    "[Error]".red(),
+                    iface_name,
+                    e
+                );
                 return Err(e);
             }
         }
@@ -86,7 +92,12 @@ async fn main() -> anyhow::Result<()> {
         loop {
             if let Err(e) = monitor.run().await {
                 let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                eprintln!("{} {} Netlink monitor error: {}. Retrying in 5s...", timestamp, "[Error]".red(), e);
+                eprintln!(
+                    "{} {} Netlink monitor error: {}. Retrying in 5s...",
+                    timestamp,
+                    "[Error]".red(),
+                    e
+                );
             }
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
@@ -99,7 +110,11 @@ async fn main() -> anyhow::Result<()> {
         web::start_server(server_state, port).await;
     });
 
-    println!("{} {} PrefixDDNS started.", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green());
+    println!(
+        "{} {} PrefixDDNS started.",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        "[Init]".green()
+    );
 
     // Initialize last_prefix based on current state and config
     let mut last_prefix: Option<u128> = None;
@@ -109,12 +124,25 @@ async fn main() -> anyhow::Result<()> {
             let msg = format!("Initial IP {} detected.", ip);
             // println!("{}", msg);
             let log_limit = config_manager.get_log_limit().await;
-            log_to_web(&state.log_tx, &state.recent_logs, "System", "info", &msg, log_limit).await;
+            log_to_web(
+                &state.log_tx,
+                &state.recent_logs,
+                "System",
+                "info",
+                &msg,
+                log_limit,
+            )
+            .await;
             Some(ip)
         }
         Err(e) => {
             let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            eprintln!("{} {} Failed to fetch initial IP: {}", timestamp, "[Error]".red(), e);
+            eprintln!(
+                "{} {} Failed to fetch initial IP: {}",
+                timestamp,
+                "[Error]".red(),
+                e
+            );
             None
         }
         _ => None,
@@ -124,10 +152,18 @@ async fn main() -> anyhow::Result<()> {
         if let Some(ip) = initial_ip {
             let tasks = config_manager.get_tasks().await;
             let log_limit = config_manager.get_log_limit().await;
-            
+
             let msg = format!("Startup execution: IPv6 prefix detected: {}", ip);
-            log_to_web(&state.log_tx, &state.recent_logs, "Startup", "info", &msg, log_limit).await;
-            
+            log_to_web(
+                &state.log_tx,
+                &state.recent_logs,
+                "Startup",
+                "info",
+                &msg,
+                log_limit,
+            )
+            .await;
+
             process_tasks(&state, &tasks, ip, log_limit, "Startup").await;
         }
     }
@@ -232,35 +268,56 @@ async fn process_tasks(
         tokio::spawn(async move {
             match web::combine_ip(ip, &task.suffix) {
                 Ok(combined) => {
-                    let log_msg = format!(
-                        "Task [{}]: Running for {}",
-                        task.name, combined
-                    );
-                    log_to_web(&state.log_tx, &state.recent_logs, &source, "info", &log_msg, log_limit).await;
+                    let log_msg = format!("Task [{}]: Running for {}", task.name, combined);
+                    log_to_web(
+                        &state.log_tx,
+                        &state.recent_logs,
+                        &source,
+                        "info",
+                        &log_msg,
+                        log_limit,
+                    )
+                    .await;
 
                     match web::send_webhook(&task, ip, combined, None).await {
                         Ok(status) => {
-                            let success_msg = format!(
-                                "Task [{}]: Success (HTTP {})",
-                                task.name, status
-                            );
-                            log_to_web(&state.log_tx, &state.recent_logs, &source, "success", &success_msg, log_limit).await;
+                            let success_msg =
+                                format!("Task [{}]: Success (HTTP {})", task.name, status);
+                            log_to_web(
+                                &state.log_tx,
+                                &state.recent_logs,
+                                &source,
+                                "success",
+                                &success_msg,
+                                log_limit,
+                            )
+                            .await;
                         }
                         Err(e) => {
-                            let err_msg = format!(
-                                "Task [{}]: Failed: {}",
-                                task.name, e
-                            );
-                            log_to_web(&state.log_tx, &state.recent_logs, &source, "error", &err_msg, log_limit).await;
+                            let err_msg = format!("Task [{}]: Failed: {}", task.name, e);
+                            log_to_web(
+                                &state.log_tx,
+                                &state.recent_logs,
+                                &source,
+                                "error",
+                                &err_msg,
+                                log_limit,
+                            )
+                            .await;
                         }
                     }
                 }
                 Err(e) => {
-                    let err_msg = format!(
-                        "Task [{}]: IP combination failed: {}",
-                        task.name, e
-                    );
-                    log_to_web(&state.log_tx, &state.recent_logs, &source, "error", &err_msg, log_limit).await;
+                    let err_msg = format!("Task [{}]: IP combination failed: {}", task.name, e);
+                    log_to_web(
+                        &state.log_tx,
+                        &state.recent_logs,
+                        &source,
+                        "error",
+                        &err_msg,
+                        log_limit,
+                    )
+                    .await;
                 }
             }
         });

@@ -1,15 +1,14 @@
-use netlink_sys::{TokioSocket, SocketAddr, AsyncSocket, AsyncSocketExt};
-use netlink_packet_route::{
-    RouteNetlinkMessage, 
-    AddressFamily,
-    address::{AddressMessage, AddressAttribute, AddressHeaderFlag},
-};
-use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
-use std::net::{Ipv6Addr, IpAddr};
-use tokio::sync::broadcast;
 use anyhow::Result;
-use colored::Colorize;
 use chrono::Local;
+use colored::Colorize;
+use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
+use netlink_packet_route::{
+    address::{AddressAttribute, AddressHeaderFlag, AddressMessage},
+    AddressFamily, RouteNetlinkMessage,
+};
+use netlink_sys::{AsyncSocket, AsyncSocketExt, SocketAddr, TokioSocket};
+use std::net::{IpAddr, Ipv6Addr};
+use tokio::sync::broadcast;
 
 pub struct NetlinkMonitor {
     tx: broadcast::Sender<Ipv6Addr>,
@@ -18,23 +17,35 @@ pub struct NetlinkMonitor {
 }
 
 impl NetlinkMonitor {
-    pub fn new(tx: broadcast::Sender<Ipv6Addr>, _run_on_startup: bool, interface_index: Option<u32>) -> Self {
-        Self { tx, run_on_startup: true, interface_index } // Force run_on_startup to true
+    pub fn new(
+        tx: broadcast::Sender<Ipv6Addr>,
+        _run_on_startup: bool,
+        interface_index: Option<u32>,
+    ) -> Self {
+        Self {
+            tx,
+            run_on_startup: true,
+            interface_index,
+        } // Force run_on_startup to true
     }
 
     pub async fn run(&self) -> Result<()> {
         // NETLINK_ROUTE is 0
         let mut socket = TokioSocket::new(0)?;
-        
+
         // RTMGRP_IPV6_IFADDR = 0x100
-        let addr = SocketAddr::new(0, 0x100); 
+        let addr = SocketAddr::new(0, 0x100);
         socket.socket_mut().bind(&addr)?;
 
-        println!("{} {} Netlink monitor started, listening for IPv6 changes...", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green());
+        println!(
+            "{} {} Netlink monitor started, listening for IPv6 changes...",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            "[Init]".green()
+        );
 
         // If configured, fetch existing addresses immediately
         if self.run_on_startup {
-             self.fetch_existing_addresses().await?;
+            self.fetch_existing_addresses().await?;
         }
 
         let mut buf = vec![0u8; 8192];
@@ -44,20 +55,26 @@ impl NetlinkMonitor {
             socket.recv_from(&mut buf).await?;
             let len = buf.len();
             let mut offset = 0;
-            
+
             while offset < len {
                 let bytes = &buf[offset..len];
-                if bytes.len() < 4 { break; } 
+                if bytes.len() < 4 {
+                    break;
+                }
 
                 let msg = match <NetlinkMessage<RouteNetlinkMessage>>::deserialize(bytes) {
                     Ok(m) => m,
                     Err(_) => break,
                 };
-                
-                let msg_len = msg.header.length as usize;
-                if msg_len == 0 || msg_len > bytes.len() { break; }
 
-                if let NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewAddress(addr_msg)) = msg.payload {
+                let msg_len = msg.header.length as usize;
+                if msg_len == 0 || msg_len > bytes.len() {
+                    break;
+                }
+
+                if let NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewAddress(addr_msg)) =
+                    msg.payload
+                {
                     self.process_message(addr_msg);
                 }
 
@@ -73,10 +90,10 @@ impl NetlinkMonitor {
 
         let mut links = handle.address().get().execute();
         use futures::stream::TryStreamExt;
-        
+
         while let Some(msg) = links.try_next().await.unwrap_or(None) {
             if let Some(addr) = Self::extract_ipv6_from_message(msg, interface_index) {
-                 return Ok(Some(addr));
+                return Ok(Some(addr));
             }
         }
         Ok(None)
@@ -88,7 +105,7 @@ impl NetlinkMonitor {
 
         let mut links = handle.address().get().execute();
         use futures::stream::TryStreamExt;
-        
+
         while let Some(msg) = links.try_next().await.unwrap_or(None) {
             self.process_message(msg);
         }
@@ -97,11 +114,14 @@ impl NetlinkMonitor {
 
     fn process_message(&self, msg: AddressMessage) {
         if let Some(addr) = Self::extract_ipv6_from_message(msg, self.interface_index) {
-             let _ = self.tx.send(addr);
+            let _ = self.tx.send(addr);
         }
     }
 
-    fn extract_ipv6_from_message(msg: AddressMessage, interface_index: Option<u32>) -> Option<Ipv6Addr> {
+    fn extract_ipv6_from_message(
+        msg: AddressMessage,
+        interface_index: Option<u32>,
+    ) -> Option<Ipv6Addr> {
         if msg.header.family != AddressFamily::Inet6 {
             return None;
         }
@@ -126,7 +146,8 @@ impl NetlinkMonitor {
         }
 
         if let Some(addr) = ipv6_addr {
-            if addr.is_loopback() || addr.is_multicast() || (addr.segments()[0] & 0xffc0) == 0xfe80 {
+            if addr.is_loopback() || addr.is_multicast() || (addr.segments()[0] & 0xffc0) == 0xfe80
+            {
                 return None;
             }
             return Some(addr);
@@ -134,4 +155,3 @@ impl NetlinkMonitor {
         None
     }
 }
-

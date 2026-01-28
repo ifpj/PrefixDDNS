@@ -1,9 +1,9 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::path::Path;
-use anyhow::Result;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Task {
@@ -51,7 +51,9 @@ pub struct ConfigManager {
 impl ConfigManager {
     pub async fn new(file_path: &str) -> Self {
         let config = if Path::new(file_path).exists() {
-            let content = tokio::fs::read_to_string(file_path).await.unwrap_or_default();
+            let content = tokio::fs::read_to_string(file_path)
+                .await
+                .unwrap_or_default();
             serde_json::from_str(&content).unwrap_or_default()
         } else {
             AppConfig::default()
@@ -81,7 +83,7 @@ impl ConfigManager {
     pub async fn get_tasks(&self) -> Vec<Task> {
         self.config.read().await.tasks.clone()
     }
-    
+
     pub async fn get_log_limit(&self) -> usize {
         self.config.read().await.log_limit
     }

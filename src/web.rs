@@ -1,22 +1,25 @@
+use crate::config::{AppConfig, ConfigManager, Task};
+use crate::logging::{log_to_web, LogEntry};
 use axum::{
-    extract::{State, Json, Request},
-    response::{sse::{Event, Sse}, IntoResponse, Response},
-    routing::{get, post},
+    extract::{Json, Request, State},
+    http::{header, StatusCode, Uri},
     middleware::{self, Next},
+    response::{
+        sse::{Event, Sse},
+        IntoResponse, Response,
+    },
+    routing::{get, post},
     Router,
-    http::{Uri, header, StatusCode},
 };
-use std::sync::Arc;
-use tokio::sync::broadcast;
+use chrono::Local;
+use colored::Colorize;
 use futures::stream::Stream;
-use serde::{Deserialize, Serialize};
-use crate::config::{ConfigManager, AppConfig, Task};
-use crate::logging::{LogEntry, log_to_web};
 use rust_embed::RustEmbed;
+use serde::{Deserialize, Serialize};
 use std::net::Ipv6Addr;
 use std::str::FromStr;
-use colored::Colorize;
-use chrono::Local;
+use std::sync::Arc;
+use tokio::sync::broadcast;
 
 #[derive(RustEmbed)]
 #[folder = "static/"]
@@ -42,8 +45,15 @@ pub async fn start_server(state: AppState, port: u16) {
         .layer(middleware::from_fn(access_log_middleware))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
-    println!("{} {} Web server listening on http://0.0.0.0:{}", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green(), port);
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+        .await
+        .unwrap();
+    println!(
+        "{} {} Web server listening on http://0.0.0.0:{}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        "[Init]".green(),
+        port
+    );
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -56,7 +66,7 @@ async fn access_log_middleware(req: Request, next: Next) -> Response {
 
     let duration = start.elapsed();
     let status = response.status();
-    
+
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let method_str = method.to_string();
     let method_colored = match method.as_str() {
@@ -67,7 +77,7 @@ async fn access_log_middleware(req: Request, next: Next) -> Response {
         "DELETE" => method_str.red(),
         _ => method_str.normal(),
     };
-    
+
     let status_str = status.as_u16().to_string();
     let status_colored = if status.is_success() {
         status_str.green()
@@ -76,15 +86,27 @@ async fn access_log_middleware(req: Request, next: Next) -> Response {
     } else {
         status_str.yellow()
     };
-    
+
     let tag = "[Web]".cyan();
 
     // Ignore SSE keepalive noise if needed, but useful to see connection
     if uri.path() != "/events" {
-        println!("{} {} {} {} -> {} ({:?})", timestamp, tag, method_colored, uri, status_colored, duration);
+        println!(
+            "{} {} {} {} -> {} ({:?})",
+            timestamp, tag, method_colored, uri, status_colored, duration
+        );
     } else {
         // Log SSE connection establishment only
-        println!("{} {} {} {} -> {} ({:?}) {}", timestamp, tag, method_colored, uri, status_colored, duration, "[SSE Connected]".magenta());
+        println!(
+            "{} {} {} {} -> {} ({:?}) {}",
+            timestamp,
+            tag,
+            method_colored,
+            uri,
+            status_colored,
+            duration,
+            "[SSE Connected]".magenta()
+        );
     }
 
     response
@@ -176,12 +198,12 @@ async fn test_webhook(
 
     match combined {
         Ok(combined_ip) => {
-             // Try sending the webhook (fire and forget or wait?)
-             // For test, we wait.
-             match send_webhook(&req.task, ip, combined_ip, Some(ip)).await {
-                 Ok(status) => format!("Webhook sent! Status: {}", status),
-                 Err(e) => format!("Webhook failed: {}", e),
-             }
+            // Try sending the webhook (fire and forget or wait?)
+            // For test, we wait.
+            match send_webhook(&req.task, ip, combined_ip, Some(ip)).await {
+                Ok(status) => format!("Webhook sent! Status: {}", status),
+                Err(e) => format!("Webhook failed: {}", e),
+            }
         }
         Err(e) => format!("Error combining IP: {}", e),
     }
@@ -208,7 +230,12 @@ pub fn combine_ip(original_ip: Ipv6Addr, suffix_str: &str) -> anyhow::Result<Ipv
     Ok(Ipv6Addr::from(combined_u128))
 }
 
-pub async fn send_webhook(task: &Task, original_ip: Ipv6Addr, combined_ip: Ipv6Addr, input_ip: Option<Ipv6Addr>) -> anyhow::Result<u16> {
+pub async fn send_webhook(
+    task: &Task,
+    original_ip: Ipv6Addr,
+    combined_ip: Ipv6Addr,
+    input_ip: Option<Ipv6Addr>,
+) -> anyhow::Result<u16> {
     let client = reqwest::Client::builder()
         .user_agent(concat!("PrefixDDNS/", env!("CARGO_PKG_VERSION")))
         .build()?;
@@ -297,37 +324,94 @@ async fn trigger_task_handler(
 
     if let Some(task) = task {
         if !task.allow_api_trigger {
-             return (axum::http::StatusCode::FORBIDDEN, Json(ApiResponse::<()>::error("API trigger disabled for this task"))).into_response();
+            return (
+                axum::http::StatusCode::FORBIDDEN,
+                Json(ApiResponse::<()>::error(
+                    "API trigger disabled for this task",
+                )),
+            )
+                .into_response();
         }
 
         let ip = match Ipv6Addr::from_str(&req.ip) {
             Ok(ip) => ip,
-            Err(_) => return (axum::http::StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::error("Invalid IPv6 address"))).into_response(),
+            Err(_) => {
+                return (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    Json(ApiResponse::<()>::error("Invalid IPv6 address")),
+                )
+                    .into_response()
+            }
         };
 
         let combined = match combine_ip(ip, &task.suffix) {
-             Ok(c) => c,
-             Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::<()>::error(&format!("IP combination error: {}", e)))).into_response(),
+            Ok(c) => c,
+            Err(e) => {
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiResponse::<()>::error(&format!(
+                        "IP combination error: {}",
+                        e
+                    ))),
+                )
+                    .into_response()
+            }
         };
 
         let log_limit = config.log_limit;
         let log_msg = format!("Task [{}]: Running for {}", task.name, ip);
-        log_to_web(&state.log_tx, &state.recent_logs, "API", "info", &log_msg, log_limit).await;
+        log_to_web(
+            &state.log_tx,
+            &state.recent_logs,
+            "API",
+            "info",
+            &log_msg,
+            log_limit,
+        )
+        .await;
 
         match send_webhook(task, ip, combined, Some(ip)).await {
             Ok(status) => {
-                 let success_msg = format!("Task [{}]: Success (HTTP {})", task.name, status);
-                 log_to_web(&state.log_tx, &state.recent_logs, "API", "success", &success_msg, log_limit).await;
-                 (axum::http::StatusCode::OK, Json(ApiResponse::<()>::success("Webhook triggered", None))).into_response()
+                let success_msg = format!("Task [{}]: Success (HTTP {})", task.name, status);
+                log_to_web(
+                    &state.log_tx,
+                    &state.recent_logs,
+                    "API",
+                    "success",
+                    &success_msg,
+                    log_limit,
+                )
+                .await;
+                (
+                    axum::http::StatusCode::OK,
+                    Json(ApiResponse::<()>::success("Webhook triggered", None)),
+                )
+                    .into_response()
             }
             Err(e) => {
-                 let err_msg = format!("Task [{}]: Failed: {}", task.name, e);
-                 log_to_web(&state.log_tx, &state.recent_logs, "API", "error", &err_msg, log_limit).await;
-                 (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::<()>::error(&format!("Webhook failed: {}", e)))).into_response()
+                let err_msg = format!("Task [{}]: Failed: {}", task.name, e);
+                log_to_web(
+                    &state.log_tx,
+                    &state.recent_logs,
+                    "API",
+                    "error",
+                    &err_msg,
+                    log_limit,
+                )
+                .await;
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ApiResponse::<()>::error(&format!("Webhook failed: {}", e))),
+                )
+                    .into_response()
             }
         }
     } else {
-        (axum::http::StatusCode::NOT_FOUND, Json(ApiResponse::<()>::error("Task not found"))).into_response()
+        (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::error("Task not found")),
+        )
+            .into_response()
     }
 }
 
