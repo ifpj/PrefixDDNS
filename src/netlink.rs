@@ -30,7 +30,7 @@ impl NetlinkMonitor {
         let addr = SocketAddr::new(0, 0x100); 
         socket.socket_mut().bind(&addr)?;
 
-        println!("{} {} Netlink monitor started, listening for IPv6 changes...", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[Init]".green());
+        println!("{} {} Netlink monitor started, listening for IPv6 changes...", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green());
 
         // If configured, fetch existing addresses immediately
         if self.run_on_startup {

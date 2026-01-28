@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
         web::start_server(server_state, port).await;
     });
 
-    println!("{} {} PrefixDDNS started.", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[Init]".green());
+    println!("{} {} PrefixDDNS started.", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green());
 
     // Initialize last_prefix based on current state and config
     let mut last_prefix: Option<u128> = None;
@@ -169,7 +169,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
             _ = &mut shutdown => {
-                println!("{} {} Received termination signal, shutting down...", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[System]".yellow());
+                println!("{} {} Received termination signal, shutting down...", Local::now().format("%Y-%m-%d %H:%M:%S"), "[System]".yellow());
                 break;
             }
         }

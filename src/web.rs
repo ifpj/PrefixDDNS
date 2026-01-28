@@ -43,7 +43,7 @@ pub async fn start_server(state: AppState, port: u16) {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
-    println!("{} {} Web server listening on http://0.0.0.0:{}", Local::now().format("%Y-%m-%d %H:%M:%S").to_string(), "[Init]".green(), port);
+    println!("{} {} Web server listening on http://0.0.0.0:{}", Local::now().format("%Y-%m-%d %H:%M:%S"), "[Init]".green(), port);
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -168,14 +168,8 @@ async fn test_webhook(
     };
 
     // Simulate the logic (duplicate from main logic, should be refactored to shared function)
-    let _suffix_u128 = match u128::from_str_radix(&req.task.suffix.replace(":", ""), 16) {
-        // This simple parsing is probably wrong for "::1", need proper IPv6 parsing
-        // Better: parse suffix as IPv6Addr or simple string manipulation?
-        // User requirement: "addr & /64_mask | suffix"
-        // If suffix is "::1", it implies the lower bits.
-        // Let's assume suffix is a valid IPv6 string.
-        _ => 0, // Placeholder
-    };
+    let _ = u128::from_str_radix(&req.task.suffix.replace(":", ""), 16);
+    let _suffix_u128 = 0; // Placeholder
 
     // Actually, let's use a helper function to combine IP.
     let combined = combine_ip(ip, &req.task.suffix);
