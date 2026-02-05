@@ -22,12 +22,12 @@ PrefixDDNS 支持通过高度可定制的模板来适配各种 DDNS 提供商和
 
 在配置 Webhook 的 **URL** 和 **Body** 时，你可以使用以下变量，程序在运行时会自动将其替换为实际值：
 
-| 变量名 | 说明 | 示例值 |
-| :--- | :--- | :--- |
-| `{{combined_ip}}` | **最常用**。组合后的完整 IPv6 地址（前缀 + 后缀）。 | `2001:db8::1` |
-| `{{prefix}}` | 检测到的 IPv6 前缀。 | `2001:db8::/64` |
-| `{{original_ip}}` | 接口上检测到的原始 IPv6 地址。 | `2001:db8::1234` |
-| `{{input_ip}}` | 手动触发 API 时输入的 IP 地址（仅手动模式有效）。 | `2001:db8::5678` |
+| 变量名            | 说明                                                | 示例值           |
+| :---------------- | :-------------------------------------------------- | :--------------- |
+| `{{combined_ip}}` | **最常用**。组合后的完整 IPv6 地址（前缀 + 后缀）。 | `2001:db8::1`    |
+| `{{prefix}}`      | 检测到的 IPv6 前缀。                                | `2001:db8::/64`  |
+| `{{original_ip}}` | 接口上检测到的原始 IPv6 地址。                      | `2001:db8::1234` |
+| `{{input_ip}}`    | 手动触发 API 时输入的 IP 地址（仅手动模式有效）。   | `2001:db8::5678` |
 
 ---
 
@@ -60,12 +60,14 @@ PrefixDDNS 支持通过高度可定制的模板来适配各种 DDNS 提供商和
 ### 如何获取参数？
 
 #### 1. `YOUR_ZONE_ID` (区域 ID)
+
 1. 登录 Cloudflare Dashboard。
 2. 点击进入你的域名（例如 `example.com`）。
 3. 在 **Overview** (概览) 页面，向下滑动到右下角。
 4. 找到 **API** 区域，复制 **Zone ID**。
 
 #### 2. `YOUR_TOKEN` (API 令牌)
+
 1. 点击右上角头像 -> **My Profile** -> **API Tokens**。
 2. 点击 **Create Token**。
 3. 使用 **Edit Zone DNS** 模板。
@@ -73,6 +75,7 @@ PrefixDDNS 支持通过高度可定制的模板来适配各种 DDNS 提供商和
 5. 生成并复制 Token。
 
 #### 3. `YOUR_RECORD_ID` (记录 ID)
+
 记录 ID 无法直接在网页上查看，需要通过 API 获取。你可以使用以下命令（需要先获取 Token 和 Zone ID）：
 
 ```bash
@@ -81,6 +84,7 @@ curl -X GET "https://api.cloudflare.com/client/v4/zones/YOUR_ZONE_ID/dns_records
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json"
 ```
+
 在返回的 JSON 结果中，找到对应域名记录的 `"id"` 字段，即为 `YOUR_RECORD_ID`。
 
 ---
@@ -90,6 +94,7 @@ curl -X GET "https://api.cloudflare.com/client/v4/zones/YOUR_ZONE_ID/dns_records
 Dynv6 提供了两种更新方式：简单 URL 更新（适用于主域名）和 REST API 更新（适用于子域名/特定记录）。
 
 ### 模式 A: Dynv6 (Zone) - 推荐用于主域名
+
 - **适用场景**: 更新 `example.dynv6.net` 的主 AAAA 记录。
 - **Method**: `GET`
 - **URL**:
@@ -99,10 +104,12 @@ Dynv6 提供了两种更新方式：简单 URL 更新（适用于主域名）和
 - **Body**: `null` (留空)
 
 #### 参数获取:
+
 - **YOUR_HOSTNAME**: 你的完整域名（如 `test.dynv6.net`）。
 - **YOUR_TOKEN**: 登录 Dynv6 -> 菜单 **Keys** -> 查看 **HTTP Token**。
 
 ### 模式 B: Dynv6 (Subdomain) - 用于特定记录
+
 - **适用场景**: 精确更新区域内的某条记录（如 `sub.example.dynv6.net`），且不影响其他记录。
 - **Method**: `PATCH`
 - **URL**: `https://dynv6.com/api/v2/zones/YOUR_ZONE_ID/records/YOUR_RECORD_ID`
@@ -121,6 +128,7 @@ Dynv6 提供了两种更新方式：简单 URL 更新（适用于主域名）和
   ```
 
 #### 参数获取:
+
 - **YOUR_TOKEN**: 同上（HTTP Token）。
 - **YOUR_ZONE_ID**:
   - 方法1: 登录 Dynv6，点击你的 Zone，浏览器 URL 链接中的数字即为 ID (例如 `https://dynv6.com/zones/123456`，ID 为 `123456`)。
@@ -140,6 +148,7 @@ Dynv6 提供了两种更新方式：简单 URL 更新（适用于主域名）和
 Dynu 支持标准的 IP Update Protocol。
 
 ### 模式 A: Dynu (Zone) - 更新主域名
+
 - **Method**: `GET`
 - **URL**:
   ```text
@@ -147,6 +156,7 @@ Dynu 支持标准的 IP Update Protocol。
   ```
 
 ### 模式 B: Dynu (Subdomain/Alias) - 更新子域名/别名
+
 - **Method**: `GET`
 - **URL**:
   ```text
