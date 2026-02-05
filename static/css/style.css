@@ -453,6 +453,40 @@ input:checked + .slider:before { transform: translateX(10px); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    /* Live Logs Mobile Optimization */
+    .log-entry {
+        flex-wrap: wrap;
+        padding: 0.5rem;
+        gap: 0.25rem;
+    }
+
+    .log-time, .log-source, .log-level {
+        min-width: auto;
+        font-size: 0.7rem;
+        line-height: 1.2;
+    }
+    
+    /* Make metadata elements slightly more compact */
+    .log-time { color: #888; margin-right: 0.25rem; }
+    .log-source { margin-right: 0.25rem; }
+
+    .log-msg {
+        flex-basis: 100%;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 0.8rem;
+        line-height: 1.4;
+        padding-left: 0.25rem; /* Slight indent for message */
+        color: #e5e7eb;
+    }
+}
+
 /* Toast */
 #toast-container {
     position: fixed; top: 80px; right: 24px; z-index: 100;
