@@ -14,7 +14,22 @@ env:
 
 jobs:
   build:
+    name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            make_target: x86_64
+            cc: musl-gcc
+            cc_var: CC_X86_64
+            packages: musl-tools
+          - target: aarch64-unknown-linux-musl
+            make_target: aarch64
+            cc: aarch64-linux-gnu-gcc
+            cc_var: CC_AARCH64
+            packages: gcc-aarch64-linux-gnu
 
     steps:
       - uses: actions/checkout@v4
@@ -22,43 +37,65 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
+          sudo apt-get install -y ${{ matrix.packages }}
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+          targets: ${{ matrix.target }}
 
-      - name: Build x86_64
-        run: make x86_64 CC_X86_64=musl-gcc
+      - name: Build
+        run: make ${{ matrix.make_target }} ${{ matrix.cc_var }}=${{ matrix.cc }}
 
-      - name: Build aarch64
-        run: make aarch64 CC_AARCH64=aarch64-linux-gnu-gcc
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prefixddns-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/prefixddns
+          if-no-files-found: error
+
+  release:
+    name: Create Beta Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Get short SHA
         id: slug
         run: echo "sha8=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_OUTPUT
 
-      - name: Rename artifacts
+      - name: Download x86_64 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prefixddns-x86_64-unknown-linux-musl
+          path: artifacts/x86_64
+
+      - name: Download aarch64 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prefixddns-aarch64-unknown-linux-musl
+          path: artifacts/aarch64
+
+      - name: Prepare Release Files
         run: |
-          mv target/x86_64-unknown-linux-musl/release/prefixddns prefixddns-x86_64-linux-musl-${{ steps.slug.outputs.sha8 }}
-          mv target/aarch64-unknown-linux-musl/release/prefixddns prefixddns-aarch64-linux-musl-${{ steps.slug.outputs.sha8 }}
+          mkdir release_assets
+          cp artifacts/x86_64/prefixddns release_assets/prefixddns-x86_64-linux-musl-${{ steps.slug.outputs.sha8 }}
+          cp artifacts/aarch64/prefixddns release_assets/prefixddns-aarch64-linux-musl-${{ steps.slug.outputs.sha8 }}
 
       - name: Delete existing beta release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete beta --cleanup-tag -y || true
 
       - name: Create beta release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: beta
           name: Beta Release
           body: "Build for commit ${{ steps.slug.outputs.sha8 }}"
           prerelease: true
-          files: |
-            prefixddns-x86_64-linux-musl-${{ steps.slug.outputs.sha8 }}
-            prefixddns-aarch64-linux-musl-${{ steps.slug.outputs.sha8 }}
+          files: release_assets/*
