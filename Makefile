@@ -18,21 +18,23 @@ all: x86_64 aarch64
 
 # x86_64-unknown-linux-musl (Static binary for x86)
 # Uses x86_64-linux-gcc as linker and optimized for size
+CC_X86_64 ?= x86_64-linux-gcc
 .PHONY: x86_64
 x86_64:
 	@echo "Building for x86_64 musl..."
-	CC_x86_64_unknown_linux_musl=x86_64-linux-gcc \
-	CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=x86_64-linux-gcc \
+	CC_x86_64_unknown_linux_musl=$(CC_X86_64) \
+	CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=$(CC_X86_64) \
 	RUSTFLAGS="$(RUSTFLAGS_SIZE)" \
 	cargo build --release --target x86_64-unknown-linux-musl
 
 # aarch64-unknown-linux-musl
 # Uses aarch64-linux-gcc as linker and optimized for size
+CC_AARCH64 ?= aarch64-linux-gcc
 .PHONY: aarch64
 aarch64:
 	@echo "Building for aarch64 musl..."
-	CC_aarch64_unknown_linux_musl=aarch64-linux-gcc \
-	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gcc \
+	CC_aarch64_unknown_linux_musl=$(CC_AARCH64) \
+	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=$(CC_AARCH64) \
 	RUSTFLAGS="$(RUSTFLAGS_SIZE)" \
 	cargo build --release --target aarch64-unknown-linux-musl
 
