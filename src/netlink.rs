@@ -137,6 +137,11 @@ impl NetlinkMonitor {
             return None;
         }
 
+        // Ignore deprecated addresses (Address is no longer preferred)
+        if msg.header.flags.contains(&AddressHeaderFlag::Deprecated) {
+            return None;
+        }
+
         let mut ipv6_addr = None;
 
         for attr in msg.attributes {
