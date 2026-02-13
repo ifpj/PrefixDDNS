@@ -21,31 +21,21 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
-            make_target: x86_64
-            cc: musl-gcc
-            cc_var: CC_X86_64
-            packages: musl-tools
           - target: aarch64-unknown-linux-musl
-            make_target: aarch64
-            cc: aarch64-linux-gnu-gcc
-            cc_var: CC_AARCH64
-            packages: gcc-aarch64-linux-gnu
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install cross
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.packages }}
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall cross -y
 
       - name: Build
-        run: make ${{ matrix.make_target }} ${{ matrix.cc_var }}=${{ matrix.cc }}
+        run: cross build --release --target ${{ matrix.target }}
+        env:
+          # Optimization flags ported from Makefile
+          RUSTFLAGS: "-C embed-bitcode=yes -C strip=symbols -C opt-level=z -C lto=true -C panic=abort -C codegen-units=1"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
