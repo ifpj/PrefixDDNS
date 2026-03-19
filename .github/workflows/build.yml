@@ -117,6 +117,11 @@ jobs:
           name: prefixddns-aarch64-unknown-linux-musl
           path: target/aarch64-unknown-linux-musl/release
 
+      - name: Fix executable permissions
+        run: |
+          chmod +x target/x86_64-unknown-linux-musl/release/prefixddns
+          chmod +x target/aarch64-unknown-linux-musl/release/prefixddns
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
